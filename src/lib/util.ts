@@ -31,6 +31,13 @@ ${
     .join( '; ')
 }
    .
+
+${
+  Object.keys( PROPS )
+    .filter( (p) => !props.includes( p ))
+    .map( (p) => `FILTER NOT EXISTS { ?sub iop:${PROPS[p]} [] }` )
+    .join( '\n' )
+}
 }
   `,
     list: `
@@ -47,7 +54,14 @@ ${
     .join( '; ')
 }
    .
+
+${
+  Object.keys( PROPS )
+    .filter( (p) => !props.includes( p ))
+    .map( (p) => `FILTER NOT EXISTS { ?sub iop:${PROPS[p]} [] }` )
+    .join( '\n' )
 }
+  }
   `
   } ;
 }
