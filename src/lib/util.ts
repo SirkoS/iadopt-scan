@@ -1,0 +1,111 @@
+import Bottleneck from 'bottleneck';
+
+// properties to be scanned
+const PROPS : Record<string, string> = {
+  'Property': 'hasProperty',
+  'OoI':      'hasObjectOfInterest',
+  'Matrix':   'hasMatrix',
+  'Context':  'hasContextObject',
+  'StatMod':  'hasStatisticalModifier',
+};
+const CLASSES = [ 'Variable' ];
+
+
+
+/**
+ * build the query for the given properties
+ */
+export function buildQuery( namespace: string, props: string[] ) : Record< 'list' | 'count', string> {
+  return {
+    count: `
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX iop: <${namespace}>
+
+SELECT (COUNT( DISTINCT ?sub ) AS ?count)
+WHERE {
+  ?sub
+${
+  props
+    .map( (p) => `iop:${PROPS[p]} []` )
+    .join( '; ')
+}
+   .
+}
+  `,
+    list: `
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX iop: <${namespace}>
+
+SELECT *
+WHERE {
+  ?sub
+${
+  props
+    .map( (p) => `iop:${PROPS[p]} []` )
+    .join( '; ')
+}
+   .
+}
+  `
+  } ;
+}
+
+
+/**
+ * generate all combinations of properties
+ */
+export function* getCombinations() : Generator<string[]> {
+
+  // list of keys
+  const keys = Object.keys( PROPS );
+
+  // we enumerate all combinations in binary:
+  //   1 -> element included
+  //   0 -> element not included
+  // this is the maximum number we get by such an iteration
+  const maxIndex = Math.pow( 2, keys.length ) - 1;
+
+  // list all permutations
+  for( let comb=1; comb<maxIndex; comb++ ) {
+    yield keys.filter( (_, i) => comb & Math.pow( 2, i ) );
+  }
+
+}
+
+
+// we need a rate limiter to not overwhelm the endpoint
+const limiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 1000,
+});
+
+
+/**
+ * run a single query against the endpoint
+ */
+export const runQuery = limiter.wrap( async function runQuery( endpoint: string, query: string ) : Promise<number> {
+
+  // build parameters
+  const formData = new URLSearchParams();
+  formData.set( 'query', query );
+
+  // run query
+  const res = await fetch( endpoint, {
+    method: 'POST',
+    body: formData.toString(),
+    headers: {
+      'Accept': 'text/csv',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    }
+  });
+
+  // parse result
+  let text = await res.text();
+  if( !text.includes( 'count' ) ) {
+    text = atob( text );
+  }
+  return +(text.trim().split('\n').pop() ?? -1);
+
+} );
