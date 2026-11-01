@@ -67,7 +67,7 @@ export function* getCombinations() : Generator<string[]> {
   //   1 -> element included
   //   0 -> element not included
   // this is the maximum number we get by such an iteration
-  const maxIndex = Math.pow( 2, keys.length ) - 1;
+  const maxIndex = Math.pow( 2, keys.length );
 
   // list all permutations
   for( let comb=1; comb<maxIndex; comb++ ) {
