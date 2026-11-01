@@ -80,7 +80,7 @@ export function* getCombinations() : Generator<string[]> {
 // we need a rate limiter to not overwhelm the endpoint
 const limiter = new Bottleneck({
   maxConcurrent: 1,
-  minTime: 1000,
+  minTime: 600,
 });
 
 
@@ -129,7 +129,7 @@ export async function runCountQuery( endpoint: string, query: string ) {
 /**
  * determine the list of subgraphs within this graph if any
  */
-export async function getNamedgraphs( endpoint: string ) {
+export async function getNamedGraphs( endpoint: string ) {
 
   // short circuit if we already fetched them
   if( endpoint in NAMED_GRAPHS ) {

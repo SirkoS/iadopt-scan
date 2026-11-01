@@ -1,6 +1,6 @@
 <script lang="ts">
-  import {buildQuery, getCombinations, getNamedgraphs, runCountQuery, runQuery} from '#lib/util.ts';
-  import { Input, Label, Button, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell, Radio, Heading, List, Li } from 'flowbite-svelte';
+  import {buildQuery, getCombinations, getNamedGraphs as getNamedGraphs, runCountQuery } from '#lib/util.ts';
+  import { Input, Label, Button, Table, TableBody, TableBodyCell, TableBodyRow, TableHead, TableHeadCell, Radio, Heading, List, Li, Progressbar } from 'flowbite-svelte';
 
   type EntryType = {
     comb: string[],
@@ -14,6 +14,8 @@
   let namedGraphs : string[] = $state([]);
   let scanEnabled = $state(true);
   let results : EntryType[] = $state([]);
+  let finishedQueries = $state(0);
+  let emptyResults = $state(0);
 
 
 
@@ -24,7 +26,10 @@
     scanEnabled = false;
 
     // fetch Named Graphs
-    namedGraphs = await getNamedgraphs( endpoint );
+    namedGraphs = await getNamedGraphs( endpoint );
+
+    // track finished queries
+    finishedQueries = 0;
 
     // create new query list
     results = [ ... getCombinations() ]
@@ -35,11 +40,21 @@
         const query = buildQuery( endpoint, namespace, comb );
 
         // start queries and pass on results
-        return {
+        const entry = {
           comb: comb,
           query: query.list,
           count: runCountQuery( endpoint, query.count ),
         };
+
+        // count finished queries
+        entry.count.then( (c) => {
+          finishedQueries += 1;
+          if(!c) {
+            emptyResults += 1;
+          }
+        });
+
+        return entry;
 
       });
 
@@ -63,11 +78,22 @@
       <Radio value="https://w3id.org/iadopt/ont#" bind:group={namespace} disabled={!scanEnabled}>https://w3id.org/iadopt/ont#</Radio>
     </div>
 
-
-    <Button class="w-full" type="submit" onclick={runScan} disabled={!scanEnabled}>Start Scan</Button>
+    {#if scanEnabled}
+      <Button class="w-full" type="submit" onclick={runScan} disabled={!scanEnabled}>
+        Start Scan
+      </Button>
+    {:else}
+      <Progressbar class="w-full font-medium text-sm rounded-lg"
+                    classes={{
+                      label: 'text-base font-medium text-center px-5 py-2.5 leading-none rounded-lg',
+                    }}
+                  animate size="h-10" labelInside
+                  progress={(100 * finishedQueries / results.length) || 0} />
+    {/if}
   </div>
 
   {#if results.length }
+
     <Heading tag="h1" class="m-4 text-xl font-bold text-center md:text-xl lg:text-xl">
       Scan Results for
       <br>
@@ -77,7 +103,7 @@
     <Heading tag="h2" class="m-4 text-base font-bold text-center md:text-xl lg:text-xl">
       Named Graphs
     </Heading>
-    <List tag="ul">
+    <List tag="ul" class="mb-5">
       {#if namedGraphs.length}
         {#each namedGraphs as graph (graph)}
           <Li>{graph}</Li>
@@ -94,22 +120,25 @@
         <TableHeadCell>Link to results</TableHeadCell>
       </TableHead>
       <TableBody>
+        <TableBodyRow>
+          <TableBodyCell colspan={3} class="text-sm italic text-center">{emptyResults} of {results.length} combinations without entities</TableBodyCell>
+        </TableBodyRow>
         {#each results as row (row) }
-          <TableBodyRow>
-            <TableBodyCell>{row.comb.join( ', ')}</TableBodyCell>
-            <TableBodyCell>
-              {#await row.count}
-                --waiting--
-              {:then count}
-                {count}
-              {/await}
-            </TableBodyCell>
-            <TableBodyCell><a
-              class="underline"
-              href="http://vocab.nerc.ac.uk/sparql/sparql?query={encodeURIComponent( row.query )}&format=text/csv" target="_blank">
-              Download List of Entities
-            </a></TableBodyCell>
-          </TableBodyRow>
+          {#await row.count then count}
+            {#if count}
+              <TableBodyRow>
+                <TableBodyCell>{row.comb.join( ', ')}</TableBodyCell>
+                <TableBodyCell>
+                    {count}
+                </TableBodyCell>
+                <TableBodyCell><a
+                  class="underline"
+                  href="http://vocab.nerc.ac.uk/sparql/sparql?query={encodeURIComponent( row.query )}&format=text/csv" target="_blank">
+                  Download List of Entities
+                </a></TableBodyCell>
+              </TableBodyRow>
+            {/if}
+          {/await}
         {/each}
       </TableBody>
     </Table>
