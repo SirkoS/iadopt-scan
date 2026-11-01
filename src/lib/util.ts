@@ -2,11 +2,12 @@ import Bottleneck from 'bottleneck';
 
 // properties to be scanned
 const PROPS : Record<string, string> = {
-  'Property': 'hasProperty',
-  'OoI':      'hasObjectOfInterest',
-  'Matrix':   'hasMatrix',
-  'Context':  'hasContextObject',
-  'StatMod':  'hasStatisticalModifier',
+  'Property':     'hasProperty',
+  'OoI':          'hasObjectOfInterest',
+  'Matrix':       'hasMatrix',
+  'Context':      'hasContextObject',
+  'StatMod':      'hasStatisticalModifier',
+  'Constraint':   'hasConstraint',
 };
 const CLASSES = [ 'Variable' ];
 
@@ -20,13 +21,13 @@ const NAMED_GRAPHS : Record<string, string[]> = {};
  */
 export function buildQuery( endpoint: string, namespace: string, props: string[] ) : Record< 'list' | 'count', string> {
 
-  return {
-    count: `
+  // query stub
+  const query = (select: string ) => `
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX iop: <${namespace}>
 
-SELECT (COUNT( DISTINCT ?sub ) AS ?count)
+SELECT ${select}
 ${NAMED_GRAPHS[endpoint].map( (e) => `FROM <${e}>` ).join( '\n' )}
 WHERE {
   ?sub
@@ -36,7 +37,6 @@ ${
     .join( '; ')
 }
    .
-
 ${
   Object.keys( PROPS )
     .filter( (p) => !props.includes( p ))
@@ -44,31 +44,14 @@ ${
     .join( '\n' )
 }
 }
-  `,
-    list: `
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX iop: <${namespace}>
+  `;
 
-SELECT *
-WHERE {
-  ?sub
-${
-  props
-    .map( (p) => `iop:${PROPS[p]} []` )
-    .join( '; ')
-}
-   .
-
-${
-  Object.keys( PROPS )
-    .filter( (p) => !props.includes( p ))
-    .map( (p) => `FILTER NOT EXISTS { ?sub iop:${PROPS[p]} [] }` )
-    .join( '\n' )
-}
-  }
-  `
+  // return relevant queries
+  return {
+    count:  query( '(COUNT( DISTINCT ?sub ) AS ?count)' ),
+    list:   query( '*' ),
   } ;
+
 }
 
 
