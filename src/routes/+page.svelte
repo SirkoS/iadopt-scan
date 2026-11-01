@@ -52,15 +52,15 @@
   <div>
     <div class="mb-6">
       <Label for="endpoint" class="mb-2">SPARQL endpoint</Label>
-      <Input id="endpoint" bind:value={endpoint} />
+      <Input id="endpoint" bind:value={endpoint} disabled={!scanEnabled} />
     </div>
 
 
     <div class="mb-6">
       <Label class="mb-2">Namespace</Label>
 
-      <Radio value="https://w3id.org/iadopt/ont/" bind:group={namespace}>https://w3id.org/iadopt/ont/</Radio>
-      <Radio value="https://w3id.org/iadopt/ont#" bind:group={namespace}>https://w3id.org/iadopt/ont#</Radio>
+      <Radio value="https://w3id.org/iadopt/ont/" bind:group={namespace} disabled={!scanEnabled}>https://w3id.org/iadopt/ont/</Radio>
+      <Radio value="https://w3id.org/iadopt/ont#" bind:group={namespace} disabled={!scanEnabled}>https://w3id.org/iadopt/ont#</Radio>
     </div>
 
 
