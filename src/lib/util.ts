@@ -10,12 +10,16 @@ const PROPS : Record<string, string> = {
 };
 const CLASSES = [ 'Variable' ];
 
+// memorize named graphs
+const NAMED_GRAPHS : Record<string, string[]> = {};
+
 
 
 /**
  * build the query for the given properties
  */
-export function buildQuery( namespace: string, props: string[] ) : Record< 'list' | 'count', string> {
+export function buildQuery( endpoint: string, namespace: string, props: string[] ) : Record< 'list' | 'count', string> {
+
   return {
     count: `
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -23,6 +27,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX iop: <${namespace}>
 
 SELECT (COUNT( DISTINCT ?sub ) AS ?count)
+${NAMED_GRAPHS[endpoint].map( (e) => `FROM <${e}>` ).join( '\n' )}
 WHERE {
   ?sub
 ${
@@ -99,7 +104,7 @@ const limiter = new Bottleneck({
 /**
  * run a single query against the endpoint
  */
-export const runQuery = limiter.wrap( async function runQuery( endpoint: string, query: string ) : Promise<number> {
+export const runQuery = limiter.wrap( async function runQuery( endpoint: string, query: string ) : Promise<string> {
 
   // build parameters
   const formData = new URLSearchParams();
@@ -116,10 +121,54 @@ export const runQuery = limiter.wrap( async function runQuery( endpoint: string,
   });
 
   // parse result
-  let text = await res.text();
-  if( !text.includes( 'count' ) ) {
-    text = atob( text );
-  }
-  return +(text.trim().split('\n').pop() ?? -1);
+  return res.text();
 
 } );
+
+
+/**
+ * run a query supposed to result in a single count
+ */
+export async function runCountQuery( endpoint: string, query: string ) {
+
+  let raw = await runQuery( endpoint, query );
+
+  if( !raw.includes( 'count' ) ) {
+    raw = atob( raw );
+  }
+  return +(raw.trim().split('\n').pop() ?? -1);
+
+}
+
+
+
+
+/**
+ * determine the list of subgraphs within this graph if any
+ */
+export async function getNamedgraphs( endpoint: string ) {
+
+  // short circuit if we already fetched them
+  if( endpoint in NAMED_GRAPHS ) {
+    return NAMED_GRAPHS[ endpoint ];
+  }
+
+  // run query
+  const query = `
+SELECT DISTINCT ?g
+WHERE {
+  GRAPH ?g { ?s ?p ?o }
+}
+  `;
+  const raw = await runQuery( endpoint, query );
+
+  // skip header row but keep remainder
+  NAMED_GRAPHS[ endpoint ] = raw
+    .trim()
+    .split( '\n' )
+    .slice( 1 )
+    .map( (g) => g.trim() );
+
+  return NAMED_GRAPHS[ endpoint ];
+
+}
